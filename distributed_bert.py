@@ -149,18 +149,19 @@ class MyBertSelfAttention(BertSelfAttention):
         context_layer = torch.matmul(attention_probs, value_layer)
 
         #-------------------------
-        miss_ids = torch.ones(self.num_attention_heads)<-1
+        if self.custom_config['distribute_attention_heads']:
 
-        devices = self.custom_config['devices']
-        ind = self.custom_config['distribution_matrix'][self.custom_config['it']]
+            miss_ids = torch.ones(self.num_attention_heads)<-1
 
-        for i in range(len(devices)):
-            if devices[i] == False:
-                miss_ids[ind==i] = True
+            devices = self.custom_config['devices']
+            ind = self.custom_config['distribution_matrix'][self.custom_config['it']]
 
+            for i in range(len(devices)):
+                if devices[i] == False:
+                    miss_ids[ind==i] = True
 
-        ## Zero Replacement
-        context_layer[:,miss_ids,:,:] = 0
+            ## Zero Replacement
+            context_layer[:,miss_ids,:,:] = 0
         
         #------------------------
         #------------------------
@@ -202,17 +203,17 @@ class BertSelfOutput(nn.Module):
         
     def forward(self, hidden_states, input_tensor):
         
-        # if self.custom_config['break_fcs']:
-        #     mask = torch.ones_like(self.dense.weight)
-        #     devices = self.custom_config['devices']
+        if self.custom_config['break_fcs']:
+            mask = torch.ones_like(self.dense.weight)
+            devices = self.custom_config['devices']
 
-        #     for i in range(len(devices)):
-        #         if devices[i] == False:
-        #             mask -= self.fc_masks[i]
+            for i in range(len(devices)):
+                if devices[i] == False:
+                    mask -= self.fc_masks[i]
 
-        #     hidden_states = F.linear(hidden_states, self.dense.weight * mask, self.dense.bias)
-        # else:
-        hidden_states = self.dense(hidden_states)
+            hidden_states = F.linear(hidden_states, self.dense.weight * mask, self.dense.bias)
+        else:
+            hidden_states = self.dense(hidden_states)
             
         hidden_states = self.dropout(hidden_states)
         hidden_states = self.LayerNorm(hidden_states + input_tensor)
@@ -688,9 +689,14 @@ class MyBertEmbeddings(nn.Module):
         
     def deactivate_embeddings(self, tokens):
         with torch.no_grad():
-            for token in tokens:
-                    # self.word_embeddings.weight[token].requires_grad = False
-                self.word_embeddings.weight[token] = 0
+            # for token in tokens:
+            #         # self.word_embeddings.weight[token].requires_grad = False
+            #     self.word_embeddings.weight[token] = 0
+
+            # print(self.word_embeddings.weight.shape)
+            # print(tokens.shape)
+            # 1/0
+            self.word_embeddings.weight[tokens] = 0
     def activate_all_embeddings(self):
         # self.word_embeddings.requires_grad = True 
         self.word_embeddings.load_state_dict(self.emb_cp)
@@ -836,7 +842,13 @@ class MyBertModel(BertModel):
             vocab_ids = self.custom_config['vocab_ids']
             if self.custom_config['verbose']:
                 print(f'Vocab Dist Sum: {vocab_dist.sum()}')
-            disable = [vocab_ids[t] for t in range(len(vocab_dist)) if vocab_dist[t] == False]
+            # print(vocab_dist)
+            # print(vocab_ids)
+            # disable = [vocab_ids[t] for t in range(len(vocab_dist)) if vocab_dist[t] == False]
+            disable = vocab_ids[vocab_dist == False]
+            # print(disable)
+            # print(dis2)
+            # 1/0
             # print(disable)
             self.embeddings.deactivate_embeddings(disable)
             self.set_custom_config(self.custom_config) # to broadcast the new config (including decive failure probs)
