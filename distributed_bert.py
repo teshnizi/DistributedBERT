@@ -829,7 +829,8 @@ class MyBertModel(BertModel):
 
 
         # Sample device churn
-        self.custom_config['devices'] = (torch.bernoulli(self.custom_config['active_probs']) > 0.5)
+        if not self.custom_config['force_device_activity']:
+            self.custom_config['devices'] = (torch.bernoulli(self.custom_config['active_probs']) > 0.5)
         self.custom_config['it'] = 0
 
 
