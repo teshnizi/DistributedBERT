@@ -258,7 +258,7 @@ class MyBertAttention(BertAttention):
         self.custom_config = custom_config
         self.self.set_custom_config(custom_config)
         self.output.set_custom_config(custom_config)
-    
+##tmp comment         
     def forward(
         self,
         hidden_states,
