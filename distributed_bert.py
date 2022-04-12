@@ -253,7 +253,7 @@ class MyBertAttention(BertAttention):
         self.self = MyBertSelfAttention(config)
         self.output = BertSelfOutput(config)
         self.pruned_heads = set()
-    
+
     def set_custom_config(self, custom_config):
         self.custom_config = custom_config
         self.self.set_custom_config(custom_config)
